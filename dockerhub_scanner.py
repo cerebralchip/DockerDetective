@@ -5,7 +5,6 @@ import psycopg2
 from psycopg2.extras import execute_values
 import concurrent.futures
 import logging
-import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -19,7 +18,7 @@ DB_PARAMS = {
     'port': 5432
 }
 
-# Number of parallel processes
+# Number of parallel processes, can be changed depending on the system capabilities
 NUM_PROCESSES = 6
 
 def get_unscanned_container():
