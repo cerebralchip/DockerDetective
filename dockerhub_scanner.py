@@ -23,6 +23,12 @@ DB_PARAMS = {
 NUM_PROCESSES = 6
 
 def get_unscanned_container():
+    """
+    Retrieves the name of an unscanned container from the database and marks it as 'in_progress'.
+
+    Returns:
+        str or None: The name of the unscanned container, or None if no unscanned containers are found.
+    """
     with psycopg2.connect(**DB_PARAMS) as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -43,6 +49,15 @@ def get_unscanned_container():
     return None
 
 def pull_container(image_name):
+    """
+    Pulls a Docker container image from Docker Hub.
+
+    Args:
+        image_name (str): The name of the Docker image to pull.
+
+    Returns:
+        bool: True if the image was successfully pulled, False otherwise.
+    """
     try:
         logging.info(f"Pulling {image_name}...")
         subprocess.run(['docker', 'pull', image_name], check=True, capture_output=True, text=True)
@@ -57,6 +72,16 @@ def pull_container(image_name):
         return False
 
 def update_download_status(image_name, status):
+    """
+    Update the download status of an image in the database.
+
+    Args:
+        image_name (str): The name of the image.
+        status (str): The download status to be updated.
+
+    Returns:
+        None
+    """
     with psycopg2.connect(**DB_PARAMS) as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -69,6 +94,19 @@ def update_download_status(image_name, status):
         conn.commit()
 
 def scan_container(image_name):
+    """
+    Scans a Docker container image using grype and returns the scan result in JSON format.
+
+    Parameters:
+    - image_name (str): The name of the Docker container image to be scanned.
+
+    Returns:
+    - dict: The scan result in JSON format.
+
+    Raises:
+    - subprocess.CalledProcessError: If an error occurs while running the 'grype' tool.
+
+    """
     try:
         logging.info(f"Scanning {image_name} ...")
         result = subprocess.run(['grype', image_name, '-o', 'json'], capture_output=True, text=True, check=True)
@@ -79,6 +117,18 @@ def scan_container(image_name):
         return None
 
 def delete_container(image_name):
+    """
+    Deletes a Docker container with the specified image name.
+
+    Args:
+        image_name (str): The name of the Docker image to delete.
+
+    Raises:
+        subprocess.CalledProcessError: If an error occurs while deleting the container.
+
+    Returns:
+        None
+    """
     try:
         subprocess.run(['docker', 'rmi', image_name], check=True, capture_output=True, text=True)
         logging.info(f"Successfully deleted {image_name}")
@@ -86,6 +136,17 @@ def delete_container(image_name):
         logging.error(f"Error deleting {image_name}: {e.stderr}")
 
 def parse_and_upload_scan_result(scan_result, image_name):
+    """
+    Parses the scan result and uploads the data to the database.
+    Args:
+        scan_result (dict): The scan result data.
+        image_name (str): The name of the image.
+    Returns:
+        None
+    Raises:
+        Exception: If there is an error parsing and uploading the scan result.
+    """
+    pass
     with psycopg2.connect(**DB_PARAMS) as conn:
         try:
             with conn.cursor() as cur:
@@ -187,6 +248,24 @@ def parse_and_upload_scan_result(scan_result, image_name):
             logging.info(f"Successfully parsed and uploaded scan result for {image_name}")
             
 def process_container():
+    """
+    Process a container by performing the following steps:
+    1. Get the name of an unscanned container.
+    2. If no unscanned container is found, return False.
+    3. Pull the container image.
+    4. Scan the container image.
+    5. Delete the container image.
+    6. If the scan result is available:
+        - Parse and upload the scan result.
+    7. If the scan result is not available:
+        - Update the download status of the container to 'scan_failed'.
+        - Log an error message.
+    8. If there are download issues with the container:
+        - Log an info message indicating that processing was skipped.
+    9. Return True to indicate successful processing.
+    Returns:
+        bool: True if the container was processed successfully, False otherwise.
+    """
     image_name = get_unscanned_container()
     if not image_name:
         return False
@@ -207,6 +286,14 @@ def process_container():
     return True
 
 def main():
+    """
+    This function is the entry point of the DockerDetective application.
+    It updates the grype database and processes containers using a process pool executor.
+    Parameters:
+    None
+    Returns:
+    None
+    """
     # run command: grype db update before getting started
     subprocess.run(['grype', 'db', 'update'], check=True)
     
