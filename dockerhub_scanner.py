@@ -26,10 +26,16 @@ def get_unscanned_container():
     with psycopg2.connect(**DB_PARAMS) as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT image_name FROM images 
-                WHERE is_scanned = FALSE AND download_status = 'pending'
-                ORDER BY pull_count DESC 
-                LIMIT 1 FOR UPDATE SKIP LOCKED
+                UPDATE images
+                SET download_status = 'in_progress'
+                WHERE image_name = (
+                    SELECT image_name FROM images 
+                    WHERE is_scanned = FALSE 
+                      AND download_status = 'pending'
+                    ORDER BY COALESCE(pull_count, 0) DESC 
+                    LIMIT 1 FOR UPDATE SKIP LOCKED
+                )
+                RETURNING image_name
             """)
             result = cur.fetchone()
             if result:
